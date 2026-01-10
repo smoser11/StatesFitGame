@@ -10,7 +10,7 @@ import {
   PanResponder,
   Animated,
 } from "react-native";
-import Svg, { Polygon, G, Circle } from "react-native-svg";
+import Svg, { Polygon, G, Circle, Text as SvgText } from "react-native-svg";
 import { StatusBar } from "expo-status-bar";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -38,7 +38,7 @@ const STATES_DATA = {
   },
   rhodeIsland: {
     name: "Rhode Island",
-    shape: "42,42 58,42 58,58 42,58", // Small square
+    shape: "42,42 58,42 58,58 42,58",
     area: 5,
     color: "#96CEB4",
   },
@@ -76,6 +76,7 @@ const STATES_DATA = {
 
 type StateKey = keyof typeof STATES_DATA;
 type Difficulty = "easy" | "medium" | "hard";
+type InteractionMode = "move" | "rotate";
 
 export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -85,22 +86,56 @@ export default function App() {
   const [stateA, setStateA] = useState<StateKey>("wyoming");
   const [stateB, setStateB] = useState<StateKey>("texas");
   const [rotation, setRotation] = useState(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [showFeedback, setShowFeedback] = useState<"correct" | "wrong" | null>(
     null
   );
   const [isAnswered, setIsAnswered] = useState(false);
+  const [interactionMode, setInteractionMode] =
+    useState<InteractionMode>("move");
 
-  const rotationAnim = useRef(new Animated.Value(0)).current;
+  const lastGestureRef = useRef({ x: 0, y: 0 });
+  const interactionModeRef = useRef(interactionMode);
 
-  // Pan responder for smooth rotation
+  // Update ref whenever mode changes
+  React.useEffect(() => {
+    interactionModeRef.current = interactionMode;
+  }, [interactionMode]);
+
+  // Pan responder for move and rotate
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !isAnswered,
       onMoveShouldSetPanResponder: () => !isAnswered,
+
+      onPanResponderGrant: (evt) => {
+        // Store initial position for move mode
+        lastGestureRef.current = {
+          x: position.x,
+          y: position.y,
+        };
+      },
+
       onPanResponderMove: (evt, gestureState) => {
-        const angle =
-          Math.atan2(gestureState.dy, gestureState.dx) * (180 / Math.PI);
-        setRotation((angle + 360) % 360);
+        // Use the ref to get current mode
+        if (interactionModeRef.current === "move") {
+          // Move the state
+          setPosition({
+            x: lastGestureRef.current.x + gestureState.dx,
+            y: lastGestureRef.current.y + gestureState.dy,
+          });
+        } else {
+          // Rotate the state - calculate angle from touch position to center
+          const centerX = BOARD_SIZE / 2;
+          const centerY = BOARD_SIZE / 2;
+          const touchX = evt.nativeEvent.locationX;
+          const touchY = evt.nativeEvent.locationY;
+
+          const angle =
+            Math.atan2(touchY - centerY, touchX - centerX) * (180 / Math.PI);
+
+          setRotation((angle + 360) % 360);
+        }
       },
     })
   ).current;
@@ -118,7 +153,6 @@ export default function App() {
     let randomStateA: StateKey;
     let randomStateB: StateKey;
 
-    // Difficulty-based selection
     const getStatePair = (): [StateKey, StateKey] => {
       const small = stateKeys.filter((k) => STATES_DATA[k].area <= 20);
       const medium = stateKeys.filter(
@@ -127,14 +161,12 @@ export default function App() {
       const large = stateKeys.filter((k) => STATES_DATA[k].area > 60);
 
       if (diff === "easy") {
-        // Very obvious size differences
         const smallState = small[Math.floor(Math.random() * small.length)];
         const largeState = large[Math.floor(Math.random() * large.length)];
         return Math.random() > 0.5
           ? [smallState, largeState]
           : [largeState, smallState];
       } else if (diff === "hard") {
-        // Similar sizes - pick from same category
         const category = Math.random() > 0.5 ? medium : large;
         const state1 = category[Math.floor(Math.random() * category.length)];
         let state2 = category[Math.floor(Math.random() * category.length)];
@@ -143,7 +175,6 @@ export default function App() {
         }
         return [state1, state2];
       } else {
-        // Medium - moderate differences
         const state1 = stateKeys[Math.floor(Math.random() * stateKeys.length)];
         let state2 = stateKeys[Math.floor(Math.random() * stateKeys.length)];
         while (state2 === state1) {
@@ -158,8 +189,15 @@ export default function App() {
     setStateA(randomStateA);
     setStateB(randomStateB);
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
     setShowFeedback(null);
     setIsAnswered(false);
+    setInteractionMode("move");
+  };
+
+  const resetPosition = () => {
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
   };
 
   const checkAnswer = (userSays: boolean) => {
@@ -172,14 +210,12 @@ export default function App() {
     const isCorrect = userSays === actualAnswer;
     setIsAnswered(true);
 
-    // Show visual feedback
     setShowFeedback(isCorrect ? "correct" : "wrong");
 
     if (isCorrect) {
       setScore(score + 10);
     }
 
-    // Auto advance after 2 seconds
     setTimeout(() => {
       if (currentRound < 5) {
         setCurrentRound(currentRound + 1);
@@ -203,13 +239,6 @@ export default function App() {
     }, 2000);
   };
 
-  const handleRotateButton = () => {
-    if (!isAnswered) {
-      setRotation((prev) => (prev + 45) % 360);
-    }
-  };
-
-  // Scale the points for SVG rendering
   const scalePoints = (points: string, scale: number = 1) => {
     return points
       .split(" ")
@@ -231,16 +260,16 @@ export default function App() {
             <Text style={styles.instructionTitle}>How to Play:</Text>
             <Text style={styles.instructionText}>📍 Compare two US states</Text>
             <Text style={styles.instructionText}>
-              🔄 Drag on screen to rotate smoothly
+              ✋ Drag to move the state around
             </Text>
             <Text style={styles.instructionText}>
-              🤔 Decide if one fits inside the other
+              🔄 Switch to rotate mode to spin it
+            </Text>
+            <Text style={styles.instructionText}>
+              🤔 Position & rotate to see if it fits
             </Text>
             <Text style={styles.instructionText}>
               ✅ Click YES or NO to answer
-            </Text>
-            <Text style={styles.instructionText}>
-              ⚡ Quick feedback shows if you're right!
             </Text>
           </View>
 
@@ -270,7 +299,7 @@ export default function App() {
             <Text style={styles.difficultyDesc}>Similar sizes</Text>
           </TouchableOpacity>
 
-          <Text style={styles.version}>v1.1 - Enhanced Gameplay</Text>
+          <Text style={styles.version}>v1.2 - Move & Rotate</Text>
         </View>
         <StatusBar style="auto" />
       </SafeAreaView>
@@ -313,6 +342,59 @@ export default function App() {
         </View>
       </View>
 
+      {/* Mode Toggle Buttons */}
+      <View style={styles.modeContainer}>
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            interactionMode === "move" && styles.modeButtonActive,
+            isAnswered && styles.disabledButton,
+          ]}
+          onPress={() => setInteractionMode("move")}
+          disabled={isAnswered}
+        >
+          <Text
+            style={[
+              styles.modeButtonText,
+              interactionMode === "move" && styles.modeButtonTextActive,
+            ]}
+          >
+            ✋ Move
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            interactionMode === "rotate" && styles.modeButtonActive,
+            isAnswered && styles.disabledButton,
+          ]}
+          onPress={() => setInteractionMode("rotate")}
+          disabled={isAnswered}
+        >
+          <Text
+            style={[
+              styles.modeButtonText,
+              interactionMode === "rotate" && styles.modeButtonTextActive,
+            ]}
+          >
+            🔄 Rotate
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            styles.resetButton,
+            isAnswered && styles.disabledButton,
+          ]}
+          onPress={resetPosition}
+          disabled={isAnswered}
+        >
+          <Text style={styles.modeButtonText}>🎯 Reset</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.boardContainer} {...panResponder.panHandlers}>
         <View style={styles.board}>
           <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.svg}>
@@ -325,21 +407,23 @@ export default function App() {
               strokeWidth="3"
             />
 
-            {/* State A (Moving) - Foreground with rotation */}
-            <G
-              rotation={rotation.toString()}
-              origin={`${BOARD_SIZE / 2}, ${BOARD_SIZE / 2}`}
-            >
-              <Polygon
-                points={scalePoints(
-                  STATES_DATA[stateA].shape,
-                  BOARD_SIZE / 100
-                )}
-                fill={STATES_DATA[stateA].color}
-                fillOpacity={0.7}
-                stroke={STATES_DATA[stateA].color}
-                strokeWidth="3"
-              />
+            {/* State A (Moving) - with position and rotation */}
+            <G transform={`translate(${position.x}, ${position.y})`}>
+              <G
+                rotation={rotation.toString()}
+                origin={`${BOARD_SIZE / 2}, ${BOARD_SIZE / 2}`}
+              >
+                <Polygon
+                  points={scalePoints(
+                    STATES_DATA[stateA].shape,
+                    BOARD_SIZE / 100
+                  )}
+                  fill={STATES_DATA[stateA].color}
+                  fillOpacity={0.7}
+                  stroke={STATES_DATA[stateA].color}
+                  strokeWidth="3"
+                />
+              </G>
             </G>
 
             {/* Feedback Overlay */}
@@ -352,15 +436,15 @@ export default function App() {
                   fill={showFeedback === "correct" ? "#4CAF50" : "#f44336"}
                   fillOpacity={0.3}
                 />
-                <Text
+                <SvgText
                   x={BOARD_SIZE / 2}
-                  y={BOARD_SIZE / 2}
+                  y={BOARD_SIZE / 2 + 20}
                   fontSize="60"
                   fill={showFeedback === "correct" ? "#4CAF50" : "#f44336"}
                   textAnchor="middle"
                 >
                   {showFeedback === "correct" ? "✓" : "✗"}
-                </Text>
+                </SvgText>
               </G>
             )}
           </Svg>
@@ -389,30 +473,22 @@ export default function App() {
             <Text
               style={[styles.labelText, { color: STATES_DATA[stateA].color }]}
             >
-              {STATES_DATA[stateA].name} (Rotating)
+              {STATES_DATA[stateA].name} (
+              {interactionMode === "move" ? "Moving" : "Rotating"})
             </Text>
           </View>
         </View>
 
-        {/* Instructions */}
         <Text style={styles.dragHint}>
           {isAnswered
             ? "Next round coming..."
-            : "👆 Drag to rotate smoothly or use button below"}
+            : interactionMode === "move"
+            ? "👆 Drag to move the state"
+            : "👆 Drag to rotate the state"}
         </Text>
       </View>
 
       <View style={styles.controls}>
-        <TouchableOpacity
-          style={[styles.rotateButton, isAnswered && styles.disabledButton]}
-          onPress={handleRotateButton}
-          disabled={isAnswered}
-        >
-          <Text style={styles.rotateButtonText}>
-            🔄 Quick Rotate ({rotation.toFixed(0)}°)
-          </Text>
-        </TouchableOpacity>
-
         <View style={styles.answerButtons}>
           <TouchableOpacity
             style={[
@@ -558,9 +634,41 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
+  modeContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  modeButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "white",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#ddd",
+  },
+  modeButtonActive: {
+    backgroundColor: "#45B7D1",
+    borderColor: "#45B7D1",
+  },
+  resetButton: {
+    backgroundColor: "#FF9800",
+    borderColor: "#FF9800",
+  },
+  modeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  modeButtonTextActive: {
+    color: "white",
+  },
   boardContainer: {
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 10,
   },
   board: {
     shadowColor: "#000",
@@ -597,23 +705,6 @@ const styles = StyleSheet.create({
   },
   controls: {
     padding: 20,
-  },
-  rotateButton: {
-    backgroundColor: "#45B7D1",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  rotateButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
   },
   answerButtons: {
     flexDirection: "row",
