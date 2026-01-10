@@ -1,69 +1,52 @@
-import React from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+// App.tsx - Replace entire file with this
+import React from "react";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { StatusBar } from "expo-status-bar";
 
 export default function App() {
+  const [count, setCount] = React.useState(0);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Does This State Fit?</Text>
-        <Text style={styles.subtitle}>Testing React 18 Setup</Text>
-        
-        <View style={styles.info}>
-          <Text>React Version: {React.version}</Text>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => console.log('Game starting...')}
-        >
-          <Text style={styles.buttonText}>Start Game</Text>
-        </TouchableOpacity>
-        
-        <StatusBar style="auto" />
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <Text style={styles.title}>✅ React Native Web is Working!</Text>
+      <Text style={styles.subtitle}>Counter: {count}</Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => setCount(count + 1)}
+      >
+        <Text style={styles.buttonText}>Click Me!</Text>
+      </TouchableOpacity>
+      <StatusBar style="auto" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: "#4ECDC4",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
+    fontSize: 28,
+    color: "white",
+    fontWeight: "bold",
     marginBottom: 20,
   },
-  info: {
-    padding: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 5,
-    marginBottom: 30,
+  subtitle: {
+    fontSize: 20,
+    color: "white",
+    marginBottom: 20,
   },
   button: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "white",
     padding: 15,
     borderRadius: 10,
-    minWidth: 200,
-    alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
+    color: "#4ECDC4",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
