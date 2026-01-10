@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  PanResponder,
+  Animated,
 } from "react-native";
-import Svg, { Polygon, G } from "react-native-svg";
+import Svg, { Polygon, G, Circle } from "react-native-svg";
 import { StatusBar } from "expo-status-bar";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -18,128 +20,192 @@ const BOARD_SIZE = Math.min(SCREEN_WIDTH - 40, 400);
 const STATES_DATA = {
   wyoming: {
     name: "Wyoming",
-    shape: "30,30 70,30 70,60 30,60", // Rectangle
+    shape: "30,30 70,30 70,60 30,60",
     area: 50,
     color: "#FF6B6B",
   },
   colorado: {
     name: "Colorado",
-    shape: "25,25 75,25 75,65 25,65", // Rectangle
+    shape: "25,25 75,25 75,65 25,65",
     area: 45,
     color: "#4ECDC4",
   },
   texas: {
     name: "Texas",
-    shape: "10,20 70,20 80,30 80,50 70,70 40,80 20,80 10,60", // Rough Texas shape
+    shape: "10,20 70,20 80,30 80,50 70,70 40,80 20,80 10,60",
     area: 100,
     color: "#45B7D1",
   },
   rhodeIsland: {
     name: "Rhode Island",
-    shape: "35,35 65,35 65,65 35,65", // Made bigger for visibility!
+    shape: "42,42 58,42 58,58 42,58", // Small square
     area: 5,
     color: "#96CEB4",
   },
   california: {
     name: "California",
-    shape: "30,10 40,15 35,50 30,80 20,75 25,40 20,20", // Tall irregular
+    shape: "30,10 40,15 35,50 30,80 20,75 25,40 20,20",
     area: 70,
     color: "#DDA0DD",
   },
   montana: {
     name: "Montana",
-    shape: "15,25 85,25 85,55 15,55", // Wide rectangle
+    shape: "15,25 85,25 85,55 15,55",
     area: 65,
     color: "#FFB347",
   },
   alaska: {
     name: "Alaska",
-    shape: "10,10 60,10 70,20 70,40 60,50 40,50 30,60 20,50 10,30", // Large irregular
+    shape: "10,10 60,10 70,20 70,40 60,50 40,50 30,60 20,50 10,30",
     area: 120,
     color: "#87CEEB",
+  },
+  vermont: {
+    name: "Vermont",
+    shape: "45,20 55,20 55,70 45,70",
+    area: 8,
+    color: "#98FB98",
+  },
+  delaware: {
+    name: "Delaware",
+    shape: "47,30 53,30 53,60 47,60",
+    area: 6,
+    color: "#DDA0DD",
   },
 };
 
 type StateKey = keyof typeof STATES_DATA;
+type Difficulty = "easy" | "medium" | "hard";
 
 export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [currentRound, setCurrentRound] = useState(0);
   const [score, setScore] = useState(0);
   const [stateA, setStateA] = useState<StateKey>("wyoming");
   const [stateB, setStateB] = useState<StateKey>("texas");
   const [rotation, setRotation] = useState(0);
+  const [showFeedback, setShowFeedback] = useState<"correct" | "wrong" | null>(
+    null
+  );
+  const [isAnswered, setIsAnswered] = useState(false);
 
-  const startGame = () => {
+  const rotationAnim = useRef(new Animated.Value(0)).current;
+
+  // Pan responder for smooth rotation
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !isAnswered,
+      onMoveShouldSetPanResponder: () => !isAnswered,
+      onPanResponderMove: (evt, gestureState) => {
+        const angle =
+          Math.atan2(gestureState.dy, gestureState.dx) * (180 / Math.PI);
+        setRotation((angle + 360) % 360);
+      },
+    })
+  ).current;
+
+  const startGame = (selectedDifficulty: Difficulty) => {
+    setDifficulty(selectedDifficulty);
     setGameStarted(true);
     setScore(0);
     setCurrentRound(1);
-    generateNewQuestion();
+    generateNewQuestion(selectedDifficulty);
   };
 
-  const generateNewQuestion = () => {
+  const generateNewQuestion = (diff: Difficulty) => {
     const stateKeys = Object.keys(STATES_DATA) as StateKey[];
-    let randomStateA = stateKeys[Math.floor(Math.random() * stateKeys.length)];
-    let randomStateB = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+    let randomStateA: StateKey;
+    let randomStateB: StateKey;
 
-    // Make sure they're different
-    while (randomStateB === randomStateA) {
-      randomStateB = stateKeys[Math.floor(Math.random() * stateKeys.length)];
-    }
+    // Difficulty-based selection
+    const getStatePair = (): [StateKey, StateKey] => {
+      const small = stateKeys.filter((k) => STATES_DATA[k].area <= 20);
+      const medium = stateKeys.filter(
+        (k) => STATES_DATA[k].area > 20 && STATES_DATA[k].area <= 60
+      );
+      const large = stateKeys.filter((k) => STATES_DATA[k].area > 60);
+
+      if (diff === "easy") {
+        // Very obvious size differences
+        const smallState = small[Math.floor(Math.random() * small.length)];
+        const largeState = large[Math.floor(Math.random() * large.length)];
+        return Math.random() > 0.5
+          ? [smallState, largeState]
+          : [largeState, smallState];
+      } else if (diff === "hard") {
+        // Similar sizes - pick from same category
+        const category = Math.random() > 0.5 ? medium : large;
+        const state1 = category[Math.floor(Math.random() * category.length)];
+        let state2 = category[Math.floor(Math.random() * category.length)];
+        while (state2 === state1) {
+          state2 = category[Math.floor(Math.random() * category.length)];
+        }
+        return [state1, state2];
+      } else {
+        // Medium - moderate differences
+        const state1 = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+        let state2 = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+        while (state2 === state1) {
+          state2 = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+        }
+        return [state1, state2];
+      }
+    };
+
+    [randomStateA, randomStateB] = getStatePair();
 
     setStateA(randomStateA);
     setStateB(randomStateB);
     setRotation(0);
-  };
-
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 45) % 360);
+    setShowFeedback(null);
+    setIsAnswered(false);
   };
 
   const checkAnswer = (userSays: boolean) => {
+    if (isAnswered) return;
+
     const areaA = STATES_DATA[stateA].area;
     const areaB = STATES_DATA[stateB].area;
     const actualAnswer = areaA <= areaB;
 
     const isCorrect = userSays === actualAnswer;
+    setIsAnswered(true);
+
+    // Show visual feedback
+    setShowFeedback(isCorrect ? "correct" : "wrong");
 
     if (isCorrect) {
       setScore(score + 10);
-      Alert.alert(
-        "✅ Correct!",
-        `${STATES_DATA[stateA].name} (size: ${areaA}) ${
-          actualAnswer ? "CAN" : "CANNOT"
-        } fit in ${STATES_DATA[stateB].name} (size: ${areaB})`,
-        [{ text: "Next", onPress: nextRound }]
-      );
-    } else {
-      Alert.alert(
-        "❌ Wrong!",
-        `${STATES_DATA[stateA].name} (size: ${areaA}) ${
-          actualAnswer ? "CAN" : "CANNOT"
-        } fit in ${STATES_DATA[stateB].name} (size: ${areaB})`,
-        [{ text: "Next", onPress: nextRound }]
-      );
     }
+
+    // Auto advance after 2 seconds
+    setTimeout(() => {
+      if (currentRound < 5) {
+        setCurrentRound(currentRound + 1);
+        generateNewQuestion(difficulty);
+      } else {
+        Alert.alert(
+          "🎮 Game Over!",
+          `Final Score: ${isCorrect ? score + 10 : score}/50\n${
+            score >= 40
+              ? "🏆 Excellent!"
+              : score >= 30
+              ? "👏 Good job!"
+              : score >= 20
+              ? "💪 Keep practicing!"
+              : "📚 Study your states!"
+          }`,
+          [{ text: "Play Again", onPress: () => setGameStarted(false) }]
+        );
+        setGameStarted(false);
+      }
+    }, 2000);
   };
 
-  const nextRound = () => {
-    if (currentRound < 5) {
-      setCurrentRound(currentRound + 1);
-      generateNewQuestion();
-    } else {
-      Alert.alert(
-        "🎮 Game Over!",
-        `Final Score: ${score}/50\n${
-          score >= 40
-            ? "Excellent!"
-            : score >= 30
-            ? "Good job!"
-            : "Keep practicing!"
-        }`,
-        [{ text: "Play Again", onPress: startGame }]
-      );
-      setGameStarted(false);
+  const handleRotateButton = () => {
+    if (!isAnswered) {
+      setRotation((prev) => (prev + 45) % 360);
     }
   };
 
@@ -163,28 +229,48 @@ export default function App() {
 
           <View style={styles.instructions}>
             <Text style={styles.instructionTitle}>How to Play:</Text>
+            <Text style={styles.instructionText}>📍 Compare two US states</Text>
             <Text style={styles.instructionText}>
-              📍 You'll see two US states
+              🔄 Drag on screen to rotate smoothly
             </Text>
             <Text style={styles.instructionText}>
-              🔄 Rotate the colored state with the button
-            </Text>
-            <Text style={styles.instructionText}>
-              🤔 Decide if it fits inside the other state
+              🤔 Decide if one fits inside the other
             </Text>
             <Text style={styles.instructionText}>
               ✅ Click YES or NO to answer
             </Text>
             <Text style={styles.instructionText}>
-              🏆 Get 10 points for each correct answer!
+              ⚡ Quick feedback shows if you're right!
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.startButton} onPress={startGame}>
-            <Text style={styles.startButtonText}>Start Game</Text>
+          <Text style={styles.difficultyTitle}>Choose Difficulty:</Text>
+
+          <TouchableOpacity
+            style={[styles.startButton, { backgroundColor: "#4CAF50" }]}
+            onPress={() => startGame("easy")}
+          >
+            <Text style={styles.startButtonText}>🟢 Easy</Text>
+            <Text style={styles.difficultyDesc}>Obvious size differences</Text>
           </TouchableOpacity>
 
-          <Text style={styles.version}>v1.0 - Simple Shapes Edition</Text>
+          <TouchableOpacity
+            style={[styles.startButton, { backgroundColor: "#FF9800" }]}
+            onPress={() => startGame("medium")}
+          >
+            <Text style={styles.startButtonText}>🟡 Medium</Text>
+            <Text style={styles.difficultyDesc}>Mixed challenges</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.startButton, { backgroundColor: "#f44336" }]}
+            onPress={() => startGame("hard")}
+          >
+            <Text style={styles.startButtonText}>🔴 Hard</Text>
+            <Text style={styles.difficultyDesc}>Similar sizes</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.version}>v1.1 - Enhanced Gameplay</Text>
         </View>
         <StatusBar style="auto" />
       </SafeAreaView>
@@ -211,6 +297,12 @@ export default function App() {
         </Text>
         <View style={styles.scoreContainer}>
           <View style={styles.scoreItem}>
+            <Text style={styles.scoreLabel}>Difficulty</Text>
+            <Text style={[styles.scoreValue, { fontSize: 16 }]}>
+              {difficulty.toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.scoreItem}>
             <Text style={styles.scoreLabel}>Round</Text>
             <Text style={styles.scoreValue}>{currentRound}/5</Text>
           </View>
@@ -221,7 +313,7 @@ export default function App() {
         </View>
       </View>
 
-      <View style={styles.boardContainer}>
+      <View style={styles.boardContainer} {...panResponder.panHandlers}>
         <View style={styles.board}>
           <Svg width={BOARD_SIZE} height={BOARD_SIZE} style={styles.svg}>
             {/* State B (Target) - Background */}
@@ -249,6 +341,28 @@ export default function App() {
                 strokeWidth="3"
               />
             </G>
+
+            {/* Feedback Overlay */}
+            {showFeedback && (
+              <G>
+                <Circle
+                  cx={BOARD_SIZE / 2}
+                  cy={BOARD_SIZE / 2}
+                  r={BOARD_SIZE / 3}
+                  fill={showFeedback === "correct" ? "#4CAF50" : "#f44336"}
+                  fillOpacity={0.3}
+                />
+                <Text
+                  x={BOARD_SIZE / 2}
+                  y={BOARD_SIZE / 2}
+                  fontSize="60"
+                  fill={showFeedback === "correct" ? "#4CAF50" : "#f44336"}
+                  textAnchor="middle"
+                >
+                  {showFeedback === "correct" ? "✓" : "✗"}
+                </Text>
+              </G>
+            )}
           </Svg>
         </View>
 
@@ -280,47 +394,50 @@ export default function App() {
           </View>
         </View>
 
-        {/* Visual size comparison */}
-        <Text style={styles.sizeHint}>
-          Relative sizes: {STATES_DATA[stateA].name} ={" "}
-          {STATES_DATA[stateA].area}, {STATES_DATA[stateB].name} ={" "}
-          {STATES_DATA[stateB].area}
+        {/* Instructions */}
+        <Text style={styles.dragHint}>
+          {isAnswered
+            ? "Next round coming..."
+            : "👆 Drag to rotate smoothly or use button below"}
         </Text>
       </View>
 
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.rotateButton} onPress={handleRotate}>
-          <Text style={styles.rotateButtonText}>🔄 Rotate {rotation}°</Text>
+        <TouchableOpacity
+          style={[styles.rotateButton, isAnswered && styles.disabledButton]}
+          onPress={handleRotateButton}
+          disabled={isAnswered}
+        >
+          <Text style={styles.rotateButtonText}>
+            🔄 Quick Rotate ({rotation.toFixed(0)}°)
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.answerButtons}>
           <TouchableOpacity
-            style={[styles.answerButton, styles.yesButton]}
+            style={[
+              styles.answerButton,
+              styles.yesButton,
+              isAnswered && styles.disabledButton,
+            ]}
             onPress={() => checkAnswer(true)}
+            disabled={isAnswered}
           >
             <Text style={styles.answerButtonText}>YES ✅</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.answerButton, styles.noButton]}
+            style={[
+              styles.answerButton,
+              styles.noButton,
+              isAnswered && styles.disabledButton,
+            ]}
             onPress={() => checkAnswer(false)}
+            disabled={isAnswered}
           >
             <Text style={styles.answerButtonText}>NO ❌</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.hintButton}
-          onPress={() => {
-            Alert.alert(
-              "💡 Hint",
-              `Think about the sizes:\n\n${STATES_DATA[stateA].name}: ${STATES_DATA[stateA].area} units\n${STATES_DATA[stateB].name}: ${STATES_DATA[stateB].area} units\n\nCan ${STATES_DATA[stateA].area} fit inside ${STATES_DATA[stateB].area}?`,
-              [{ text: "OK" }]
-            );
-          }}
-        >
-          <Text style={styles.hintButtonText}>💡 Need a Hint?</Text>
-        </TouchableOpacity>
       </View>
 
       <StatusBar style="auto" />
@@ -349,14 +466,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     color: "#666",
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: "center",
   },
   instructions: {
     backgroundColor: "white",
     padding: 20,
     borderRadius: 15,
-    marginBottom: 30,
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -377,21 +494,35 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     lineHeight: 22,
   },
+  difficultyTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginTop: 10,
+    marginBottom: 15,
+  },
   startButton: {
-    backgroundColor: "#4ECDC4",
     paddingHorizontal: 50,
-    paddingVertical: 18,
-    borderRadius: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    marginVertical: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 5,
+    minWidth: 200,
+    alignItems: "center",
   },
   startButtonText: {
     color: "white",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
+  },
+  difficultyDesc: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    marginTop: 2,
   },
   version: {
     marginTop: 30,
@@ -457,11 +588,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  sizeHint: {
+  dragHint: {
     marginTop: 10,
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
     textAlign: "center",
+    fontStyle: "italic",
   },
   controls: {
     padding: 20,
@@ -510,13 +642,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  hintButton: {
-    marginTop: 15,
-    padding: 12,
-    alignItems: "center",
-  },
-  hintButtonText: {
-    color: "#666",
-    fontSize: 16,
+  disabledButton: {
+    opacity: 0.5,
   },
 });
