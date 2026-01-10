@@ -1,0 +1,75 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Rhode Island",
+        "abbreviation": "RI",
+        "area": 4001
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-71.8, 41.1], [-71.1, 41.1], [-71.1, 41.7], [-71.8, 41.7], [-71.8, 41.1]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Delaware",
+        "abbreviation": "DE",
+        "area": 6446
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-75.8, 38.4], [-75.0, 38.4], [-75.0, 39.8], [-75.8, 39.8], [-75.8, 38.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Connecticut",
+        "abbreviation": "CT",
+        "area": 14357
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-73.7, 40.9], [-71.8, 40.9], [-71.8, 42.1], [-73.7, 42.1], [-73.7, 40.9]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Texas",
+        "abbreviation": "TX",
+        "area": 695662
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-106.6, 25.8], [-93.5, 25.8], [-93.5, 36.5], [-106.6, 36.5], [-106.6, 25.8]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "California",
+        "abbreviation": "CA",
+        "area": 423967
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-124.4, 32.5], [-114.1, 32.5], [-114.1, 42.0], [-124.4, 42.0], [-124.4, 32.5]
+        ]]
+      }
+    }
+  ]
+}
