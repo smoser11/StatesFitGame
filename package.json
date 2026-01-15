@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest",
-    "build:web": "npx expo export -p web --output-dir web-build --no-minify",
+    "build:web": "npx expo export -p web --output-dir web-build --no-minify && node scripts/fix-web-paths.js",
     "deploy": "npm run build:web && gh-pages -d web-build"
   },
   "dependencies": {
