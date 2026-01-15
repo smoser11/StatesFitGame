@@ -9,8 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest",
-    "build:web": "expo export:web",
-    "deploy": "npm run build:web && gh-pages -d dist"
+    "build:web": "npx expo export -p web --output-dir web-build --no-minify",
+    "deploy": "npm run build:web && gh-pages -d web-build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.0",
