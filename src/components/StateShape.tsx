@@ -60,7 +60,16 @@ export const StateShape: React.FC<StateShapeProps> = ({
 
   const pathData = geoJsonToPath(geometry.geometry);
 
+  // Debug logging
+  console.log('StateShape rendering:', {
+    hasGeometry: !!geometry.geometry,
+    pathData: pathData ? `${pathData.substring(0, 50)}...` : 'empty',
+    fill,
+    stroke
+  });
+
   if (!pathData) {
+    console.warn('No path data generated for state shape');
     return null;
   }
 
