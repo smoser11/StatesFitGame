@@ -95,6 +95,7 @@ export const getBounds = (state: Feature) => {
 
 /**
  * Scale geometry to fit within viewport while maintaining aspect ratio
+ * Translates to positive SVG coordinates centered in viewport
  */
 export const scaleToViewport = (
   geometry: Feature,
@@ -105,17 +106,42 @@ export const scaleToViewport = (
   const bounds = getBounds(geometry);
   const geoWidth = bounds.maxX - bounds.minX;
   const geoHeight = bounds.maxY - bounds.minY;
-  
+
   const availableWidth = viewportWidth - (padding * 2);
   const availableHeight = viewportHeight - (padding * 2);
-  
+
   const scaleX = availableWidth / geoWidth;
   const scaleY = availableHeight / geoHeight;
   const scale = Math.min(scaleX, scaleY);
-  
-  // Center and scale the geometry
-  const centroid = turf.centroid(geometry);
-  const scaled = turf.transformScale(geometry, scale, { origin: centroid });
-  
-  return { scaledGeometry: scaled, scale };
+
+  // First, translate to origin (0, 0)
+  const toOrigin = turf.transformTranslate(
+    geometry,
+    -bounds.minX,
+    -bounds.minY,
+    { mutate: false }
+  );
+
+  // Scale from origin
+  const scaled = turf.transformScale(toOrigin, scale, {
+    origin: [0, 0]
+  });
+
+  // Get new bounds after scaling
+  const scaledBounds = getBounds(scaled);
+  const scaledWidth = scaledBounds.maxX - scaledBounds.minX;
+  const scaledHeight = scaledBounds.maxY - scaledBounds.minY;
+
+  // Center in viewport
+  const centerX = (viewportWidth - scaledWidth) / 2;
+  const centerY = (viewportHeight - scaledHeight) / 2;
+
+  const centered = turf.transformTranslate(
+    scaled,
+    centerX - scaledBounds.minX,
+    centerY - scaledBounds.minY,
+    { mutate: false }
+  );
+
+  return { scaledGeometry: centered, scale };
 };

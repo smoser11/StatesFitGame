@@ -68,41 +68,25 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     })
   ).current;
   
-  // Scale states to fit viewport
+  // Scale states to fit viewport (now includes proper centering)
   const { scaledGeometry: scaledStateA } = scaleToViewport(
     stateA.geometry,
-    screenWidth * SCREEN_DIMENSIONS.STATE_A_SIZE_RATIO,
-    BOARD_HEIGHT * SCREEN_DIMENSIONS.STATE_A_SIZE_RATIO,
-    10
+    screenWidth,
+    BOARD_HEIGHT,
+    50
   );
-  
+
   const { scaledGeometry: scaledStateB } = scaleToViewport(
     stateB.geometry,
-    screenWidth * SCREEN_DIMENSIONS.STATE_B_SIZE_RATIO,
-    BOARD_HEIGHT * SCREEN_DIMENSIONS.STATE_B_SIZE_RATIO,
-    20
+    screenWidth,
+    BOARD_HEIGHT,
+    80
   );
-  
-  // Center the geometries in the viewport
-  const centerGeometry = (geometry: any, centerX: number, centerY: number) => {
-    const centroid = turf.centroid(geometry);
-    const [currentX, currentY] = centroid.geometry.coordinates;
-    const deltaX = centerX - currentX;
-    const deltaY = centerY - currentY;
-    
-    return turf.transformTranslate(geometry, deltaX, deltaY);
-  };
-  
-  const boardCenterX = screenWidth / 2;
-  const boardCenterY = BOARD_HEIGHT / 2;
-  
-  const centeredStateB = centerGeometry(scaledStateB, boardCenterX, boardCenterY);
-  const centeredStateA = centerGeometry(scaledStateA, boardCenterX, boardCenterY);
-  
+
   // Rotate state A around its centroid
-  const centroidA = turf.centroid(centeredStateA);
+  const centroidA = turf.centroid(scaledStateA);
   const rotatedStateA = turf.transformRotate(
-    centeredStateA,
+    scaledStateA,
     rotation,
     { pivot: centroidA }
   );
@@ -112,12 +96,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       <Svg width={screenWidth} height={BOARD_HEIGHT} style={styles.svg}>
         {/* State B (target state) - rendered first as background */}
         <StateShape
-          geometry={centeredStateB}
+          geometry={scaledStateB}
           fill={COLORS.STATE_B.FILL}
           stroke={COLORS.STATE_B.STROKE}
           strokeWidth={2}
         />
-        
+
         {/* State A (state to fit) - rendered on top */}
         <G>
           <StateShape
