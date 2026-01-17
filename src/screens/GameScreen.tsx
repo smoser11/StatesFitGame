@@ -5,6 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -33,12 +34,16 @@ export const GameScreen: React.FC = () => {
   } = useContext(GameContext);
   
   const [rotation, setRotation] = useState(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [interactionMode, setInteractionMode] = useState<'move' | 'rotate'>('rotate');
   const [isAnswered, setIsAnswered] = useState(false);
   const [startTime, setStartTime] = useState(Date.now());
-  
+
   useEffect(() => {
     // Reset when new question loads
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
+    setInteractionMode('rotate');
     setIsAnswered(false);
     setStartTime(Date.now());
   }, [gameState.currentQuestion]);
@@ -84,6 +89,7 @@ export const GameScreen: React.FC = () => {
   
   const handleReset = () => {
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
     resetRotation();
   };
   
@@ -111,15 +117,55 @@ export const GameScreen: React.FC = () => {
 
       <View style={styles.instructionsContainer}>
         <Text style={styles.instructionText}>
-          🔵 Blue = {gameState.currentQuestion.stateB.name} (target) | 🟠 Orange = {gameState.currentQuestion.stateA.name} (drag to rotate)
+          🔵 Blue = {gameState.currentQuestion.stateB.name} (target) | 🟠 Orange = {gameState.currentQuestion.stateA.name}
         </Text>
+      </View>
+
+      <View style={styles.modeContainer}>
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            interactionMode === 'move' && styles.modeButtonActive,
+            isAnswered && styles.disabledButton,
+          ]}
+          onPress={() => setInteractionMode('move')}
+          disabled={isAnswered}
+        >
+          <Text style={[
+            styles.modeButtonText,
+            interactionMode === 'move' && styles.modeButtonTextActive,
+          ]}>
+            ✋ Move
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            interactionMode === 'rotate' && styles.modeButtonActive,
+            isAnswered && styles.disabledButton,
+          ]}
+          onPress={() => setInteractionMode('rotate')}
+          disabled={isAnswered}
+        >
+          <Text style={[
+            styles.modeButtonText,
+            interactionMode === 'rotate' && styles.modeButtonTextActive,
+          ]}>
+            🔄 Rotate
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <GameBoard
         stateA={gameState.currentQuestion.stateA}
         stateB={gameState.currentQuestion.stateB}
         rotation={rotation}
+        position={position}
+        interactionMode={interactionMode}
         onRotationChange={setRotation}
+        onPositionChange={setPosition}
+        isAnswered={isAnswered}
       />
 
       <ControlPanel
@@ -169,5 +215,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     color: '#666',
+  },
+  modeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  modeButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ddd',
+  },
+  modeButtonActive: {
+    backgroundColor: '#45B7D1',
+    borderColor: '#45B7D1',
+  },
+  modeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  modeButtonTextActive: {
+    color: 'white',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });

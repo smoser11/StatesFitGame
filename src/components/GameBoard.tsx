@@ -17,7 +17,11 @@ interface GameBoardProps {
   stateA: StateData;
   stateB: StateData;
   rotation: number;
+  position: { x: number; y: number };
+  interactionMode: 'move' | 'rotate';
   onRotationChange: (rotation: number) => void;
+  onPositionChange: (position: { x: number; y: number }) => void;
+  isAnswered: boolean;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -27,43 +31,61 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   stateA,
   stateB,
   rotation,
+  position,
+  interactionMode,
   onRotationChange,
+  onPositionChange,
+  isAnswered,
 }) => {
   const rotationAnim = useRef(new Animated.Value(rotation)).current;
   const lastAngle = useRef(0);
+  const lastPosition = useRef({ x: 0, y: 0 });
 
-  // Pan responder for rotation gesture
+  // Pan responder for both rotation and move gestures
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => !isAnswered,
+      onMoveShouldSetPanResponder: () => !isAnswered,
 
-      onPanResponderGrant: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        const centerX = screenWidth / 2;
-        const centerY = BOARD_HEIGHT / 2;
+      onPanResponderGrant: (evt, gestureState) => {
+        if (interactionMode === 'rotate') {
+          const { locationX, locationY } = evt.nativeEvent;
+          const centerX = screenWidth / 2;
+          const centerY = BOARD_HEIGHT / 2;
 
-        lastAngle.current = Math.atan2(
-          locationY - centerY,
-          locationX - centerX
-        ) * (180 / Math.PI);
+          lastAngle.current = Math.atan2(
+            locationY - centerY,
+            locationX - centerX
+          ) * (180 / Math.PI);
+        } else {
+          // Store initial position for move mode
+          lastPosition.current = { x: position.x, y: position.y };
+        }
       },
 
-      onPanResponderMove: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        const centerX = screenWidth / 2;
-        const centerY = BOARD_HEIGHT / 2;
+      onPanResponderMove: (evt, gestureState) => {
+        if (interactionMode === 'rotate') {
+          const { locationX, locationY } = evt.nativeEvent;
+          const centerX = screenWidth / 2;
+          const centerY = BOARD_HEIGHT / 2;
 
-        const currentAngle = Math.atan2(
-          locationY - centerY,
-          locationX - centerX
-        ) * (180 / Math.PI);
+          const currentAngle = Math.atan2(
+            locationY - centerY,
+            locationX - centerX
+          ) * (180 / Math.PI);
 
-        const deltaAngle = currentAngle - lastAngle.current;
-        const newRotation = (rotation + deltaAngle + 360) % 360;
+          const deltaAngle = currentAngle - lastAngle.current;
+          const newRotation = (rotation + deltaAngle + 360) % 360;
 
-        onRotationChange(newRotation);
-        lastAngle.current = currentAngle;
+          onRotationChange(newRotation);
+          lastAngle.current = currentAngle;
+        } else {
+          // Move mode - update position
+          onPositionChange({
+            x: lastPosition.current.x + gestureState.dx,
+            y: lastPosition.current.y + gestureState.dy,
+          });
+        }
       },
     })
   ).current;
@@ -106,7 +128,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     rotation,
     { pivot: centroidA }
   );
-  
+
+  // Apply position offset after rotation
+  const positionedStateA = turf.transformTranslate(
+    rotatedStateA,
+    position.x,
+    position.y
+  );
+
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <Svg width={screenWidth} height={BOARD_HEIGHT} style={styles.svg}>
@@ -121,7 +150,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* State A (state to fit) - rendered on top */}
         <G>
           <StateShape
-            geometry={rotatedStateA}
+            geometry={positionedStateA}
             fill={COLORS.STATE_A.FILL}
             stroke={COLORS.STATE_A.STROKE}
             strokeWidth={2}
