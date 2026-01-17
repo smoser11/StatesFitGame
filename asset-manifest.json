@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.js": "/StatesFitGame/static/js/main.c844f70a.js",
+    "main.js": "/StatesFitGame/static/js/main.0ad703fd.js",
     "static/js/242.5d43901c.js": "/StatesFitGame/static/js/242.5d43901c.js",
     "favicon.ico": "/StatesFitGame/favicon.ico",
     "index.html": "/StatesFitGame/index.html",
@@ -8,11 +8,11 @@
     "favicon-16.png": "/StatesFitGame/favicon-16.png",
     "manifest.json": "/StatesFitGame/manifest.json",
     "serve.json": "/StatesFitGame/serve.json",
-    "main.c844f70a.js.map": "/StatesFitGame/static/js/main.c844f70a.js.map",
+    "main.0ad703fd.js.map": "/StatesFitGame/static/js/main.0ad703fd.js.map",
     "242.5d43901c.js.map": "/StatesFitGame/static/js/242.5d43901c.js.map"
   },
   "entrypoints": [
     "static/js/242.5d43901c.js",
-    "static/js/main.c844f70a.js"
+    "static/js/main.0ad703fd.js"
   ]
 }
