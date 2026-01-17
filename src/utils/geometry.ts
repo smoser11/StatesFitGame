@@ -95,7 +95,6 @@ export const getBounds = (state: Feature) => {
 
 /**
  * Scale geometry to fit within viewport while maintaining aspect ratio
- * Converts geographic coordinates to SVG pixel coordinates
  */
 export const scaleToViewport = (
   geometry: Feature,
@@ -114,25 +113,9 @@ export const scaleToViewport = (
   const scaleY = availableHeight / geoHeight;
   const scale = Math.min(scaleX, scaleY);
 
-  // Transform coordinates from geographic to pixel space
-  const transformCoordinates = (coords: any[]): any[] => {
-    if (typeof coords[0] === 'number') {
-      // This is a point [x, y]
-      const x = (coords[0] - bounds.minX) * scale + padding;
-      const y = (coords[1] - bounds.minY) * scale + padding;
-      return [x, y];
-    }
-    // This is an array of coordinates, recurse
-    return coords.map(transformCoordinates);
-  };
+  // Center and scale the geometry using turf
+  const centroid = turf.centroid(geometry);
+  const scaled = turf.transformScale(geometry, scale, { origin: centroid });
 
-  // Deep clone and transform the geometry
-  const transformedGeometry = JSON.parse(JSON.stringify(geometry));
-  if (transformedGeometry.geometry && transformedGeometry.geometry.coordinates) {
-    transformedGeometry.geometry.coordinates = transformCoordinates(
-      transformedGeometry.geometry.coordinates
-    );
-  }
-
-  return { scaledGeometry: transformedGeometry, scale };
+  return { scaledGeometry: scaled, scale };
 };

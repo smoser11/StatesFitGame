@@ -30,8 +30,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onRotationChange,
 }) => {
   const rotationAnim = useRef(new Animated.Value(rotation)).current;
-  const startRotation = useRef(0);
-  const startAngle = useRef(0);
+  const lastAngle = useRef(0);
 
   // Pan responder for rotation gesture
   const panResponder = useRef(
@@ -44,12 +43,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         const centerX = screenWidth / 2;
         const centerY = BOARD_HEIGHT / 2;
 
-        // Store the initial angle and rotation
-        startAngle.current = Math.atan2(
+        lastAngle.current = Math.atan2(
           locationY - centerY,
           locationX - centerX
         ) * (180 / Math.PI);
-        startRotation.current = rotation;
       },
 
       onPanResponderMove: (evt) => {
@@ -57,47 +54,57 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         const centerX = screenWidth / 2;
         const centerY = BOARD_HEIGHT / 2;
 
-        // Calculate current angle
         const currentAngle = Math.atan2(
           locationY - centerY,
           locationX - centerX
         ) * (180 / Math.PI);
 
-        // Calculate total rotation from start
-        let deltaAngle = currentAngle - startAngle.current;
+        const deltaAngle = currentAngle - lastAngle.current;
+        const newRotation = (rotation + deltaAngle + 360) % 360;
 
-        // Handle angle wrapping around -180/180
-        if (deltaAngle > 180) deltaAngle -= 360;
-        if (deltaAngle < -180) deltaAngle += 360;
-
-        // Update rotation
-        const newRotation = (startRotation.current + deltaAngle + 360) % 360;
         onRotationChange(newRotation);
+        lastAngle.current = currentAngle;
       },
     })
   ).current;
   
-  // Rotate state A BEFORE converting to pixel coordinates
-  const centroidA = turf.centroid(stateA.geometry);
-  const rotatedStateAGeo = turf.transformRotate(
-    stateA.geometry,
-    rotation,
-    { pivot: centroidA }
-  );
-
-  // Now convert both states to pixel coordinates
+  // Scale states to fit viewport
   const { scaledGeometry: scaledStateA } = scaleToViewport(
-    rotatedStateAGeo,
-    screenWidth,
-    BOARD_HEIGHT,
-    50
+    stateA.geometry,
+    screenWidth * SCREEN_DIMENSIONS.STATE_A_SIZE_RATIO,
+    BOARD_HEIGHT * SCREEN_DIMENSIONS.STATE_A_SIZE_RATIO,
+    10
   );
 
   const { scaledGeometry: scaledStateB } = scaleToViewport(
     stateB.geometry,
-    screenWidth,
-    BOARD_HEIGHT,
-    80
+    screenWidth * SCREEN_DIMENSIONS.STATE_B_SIZE_RATIO,
+    BOARD_HEIGHT * SCREEN_DIMENSIONS.STATE_B_SIZE_RATIO,
+    20
+  );
+
+  // Center the geometries in the viewport
+  const centerGeometry = (geometry: any, centerX: number, centerY: number) => {
+    const centroid = turf.centroid(geometry);
+    const [currentX, currentY] = centroid.geometry.coordinates;
+    const deltaX = centerX - currentX;
+    const deltaY = centerY - currentY;
+
+    return turf.transformTranslate(geometry, deltaX, deltaY);
+  };
+
+  const boardCenterX = screenWidth / 2;
+  const boardCenterY = BOARD_HEIGHT / 2;
+
+  const centeredStateB = centerGeometry(scaledStateB, boardCenterX, boardCenterY);
+  const centeredStateA = centerGeometry(scaledStateA, boardCenterX, boardCenterY);
+
+  // Rotate state A around its centroid (after scaling and centering)
+  const centroidA = turf.centroid(centeredStateA);
+  const rotatedStateA = turf.transformRotate(
+    centeredStateA,
+    rotation,
+    { pivot: centroidA }
   );
   
   return (
@@ -105,7 +112,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       <Svg width={screenWidth} height={BOARD_HEIGHT} style={styles.svg}>
         {/* State B (target state) - rendered first as background */}
         <StateShape
-          geometry={scaledStateB}
+          geometry={centeredStateB}
           fill={COLORS.STATE_B.FILL}
           stroke={COLORS.STATE_B.STROKE}
           strokeWidth={2}
@@ -114,7 +121,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* State A (state to fit) - rendered on top */}
         <G>
           <StateShape
-            geometry={scaledStateA}
+            geometry={rotatedStateA}
             fill={COLORS.STATE_A.FILL}
             stroke={COLORS.STATE_A.STROKE}
             strokeWidth={2}
