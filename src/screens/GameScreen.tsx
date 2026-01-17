@@ -108,14 +108,20 @@ export const GameScreen: React.FC = () => {
           totalQuestions={gameState.totalQuestions}
         />
       </View>
-      
+
+      <View style={styles.instructionsContainer}>
+        <Text style={styles.instructionText}>
+          🔵 Blue = {gameState.currentQuestion.stateB.name} (target) | 🟠 Orange = {gameState.currentQuestion.stateA.name} (drag to rotate)
+        </Text>
+      </View>
+
       <GameBoard
         stateA={gameState.currentQuestion.stateA}
         stateB={gameState.currentQuestion.stateB}
         rotation={rotation}
         onRotationChange={setRotation}
       />
-      
+
       <ControlPanel
         onAnswer={handleAnswer}
         onHint={handleHint}
@@ -152,5 +158,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     color: '#333',
+  },
+  instructionsContainer: {
+    padding: 10,
+    backgroundColor: '#fffbea',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  instructionText: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#666',
   },
 });

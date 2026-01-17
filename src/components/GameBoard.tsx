@@ -30,40 +30,49 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onRotationChange,
 }) => {
   const rotationAnim = useRef(new Animated.Value(rotation)).current;
-  const lastAngle = useRef(0);
-  
+  const startRotation = useRef(0);
+  const startAngle = useRef(0);
+
   // Pan responder for rotation gesture
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      
+
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         const centerX = screenWidth / 2;
         const centerY = BOARD_HEIGHT / 2;
-        
-        lastAngle.current = Math.atan2(
+
+        // Store the initial angle and rotation
+        startAngle.current = Math.atan2(
           locationY - centerY,
           locationX - centerX
         ) * (180 / Math.PI);
+        startRotation.current = rotation;
       },
-      
+
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         const centerX = screenWidth / 2;
         const centerY = BOARD_HEIGHT / 2;
-        
+
+        // Calculate current angle
         const currentAngle = Math.atan2(
           locationY - centerY,
           locationX - centerX
         ) * (180 / Math.PI);
-        
-        const deltaAngle = currentAngle - lastAngle.current;
-        const newRotation = (rotation + deltaAngle + 360) % 360;
-        
+
+        // Calculate total rotation from start
+        let deltaAngle = currentAngle - startAngle.current;
+
+        // Handle angle wrapping around -180/180
+        if (deltaAngle > 180) deltaAngle -= 360;
+        if (deltaAngle < -180) deltaAngle += 360;
+
+        // Update rotation
+        const newRotation = (startRotation.current + deltaAngle + 360) % 360;
         onRotationChange(newRotation);
-        lastAngle.current = currentAngle;
       },
     })
   ).current;
