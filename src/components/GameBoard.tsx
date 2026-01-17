@@ -68,9 +68,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     })
   ).current;
   
-  // Scale states to fit viewport (now includes proper centering)
-  const { scaledGeometry: scaledStateA } = scaleToViewport(
+  // Rotate state A BEFORE converting to pixel coordinates
+  const centroidA = turf.centroid(stateA.geometry);
+  const rotatedStateAGeo = turf.transformRotate(
     stateA.geometry,
+    rotation,
+    { pivot: centroidA }
+  );
+
+  // Now convert both states to pixel coordinates
+  const { scaledGeometry: scaledStateA } = scaleToViewport(
+    rotatedStateAGeo,
     screenWidth,
     BOARD_HEIGHT,
     50
@@ -81,14 +89,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     screenWidth,
     BOARD_HEIGHT,
     80
-  );
-
-  // Rotate state A around its centroid
-  const centroidA = turf.centroid(scaledStateA);
-  const rotatedStateA = turf.transformRotate(
-    scaledStateA,
-    rotation,
-    { pivot: centroidA }
   );
   
   return (
@@ -105,7 +105,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* State A (state to fit) - rendered on top */}
         <G>
           <StateShape
-            geometry={rotatedStateA}
+            geometry={scaledStateA}
             fill={COLORS.STATE_A.FILL}
             stroke={COLORS.STATE_A.STROKE}
             strokeWidth={2}

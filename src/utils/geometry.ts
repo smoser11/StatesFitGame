@@ -95,7 +95,7 @@ export const getBounds = (state: Feature) => {
 
 /**
  * Scale geometry to fit within viewport while maintaining aspect ratio
- * Translates to positive SVG coordinates centered in viewport
+ * Converts geographic coordinates to SVG pixel coordinates
  */
 export const scaleToViewport = (
   geometry: Feature,
@@ -114,34 +114,25 @@ export const scaleToViewport = (
   const scaleY = availableHeight / geoHeight;
   const scale = Math.min(scaleX, scaleY);
 
-  // First, translate to origin (0, 0)
-  const toOrigin = turf.transformTranslate(
-    geometry,
-    -bounds.minX,
-    -bounds.minY,
-    { mutate: false }
-  );
+  // Transform coordinates from geographic to pixel space
+  const transformCoordinates = (coords: any[]): any[] => {
+    if (typeof coords[0] === 'number') {
+      // This is a point [x, y]
+      const x = (coords[0] - bounds.minX) * scale + padding;
+      const y = (coords[1] - bounds.minY) * scale + padding;
+      return [x, y];
+    }
+    // This is an array of coordinates, recurse
+    return coords.map(transformCoordinates);
+  };
 
-  // Scale from origin
-  const scaled = turf.transformScale(toOrigin, scale, {
-    origin: [0, 0]
-  });
+  // Deep clone and transform the geometry
+  const transformedGeometry = JSON.parse(JSON.stringify(geometry));
+  if (transformedGeometry.geometry && transformedGeometry.geometry.coordinates) {
+    transformedGeometry.geometry.coordinates = transformCoordinates(
+      transformedGeometry.geometry.coordinates
+    );
+  }
 
-  // Get new bounds after scaling
-  const scaledBounds = getBounds(scaled);
-  const scaledWidth = scaledBounds.maxX - scaledBounds.minX;
-  const scaledHeight = scaledBounds.maxY - scaledBounds.minY;
-
-  // Center in viewport
-  const centerX = (viewportWidth - scaledWidth) / 2;
-  const centerY = (viewportHeight - scaledHeight) / 2;
-
-  const centered = turf.transformTranslate(
-    scaled,
-    centerX - scaledBounds.minX,
-    centerY - scaledBounds.minY,
-    { mutate: false }
-  );
-
-  return { scaledGeometry: centered, scale };
+  return { scaledGeometry: transformedGeometry, scale };
 };
