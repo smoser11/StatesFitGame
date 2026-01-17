@@ -10,6 +10,7 @@ import Svg, { G } from 'react-native-svg';
 import { StateData } from '../types';
 import { StateShape } from './StateShape';
 import { scaleToViewport } from '../utils/geometry';
+import { mapToPixelSpace } from '../utils/coordinateMapper';
 import { COLORS, SCREEN_DIMENSIONS } from '../constants';
 import * as turf from '@turf/turf';
 
@@ -136,12 +137,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     position.y
   );
 
+  // NOW map both states to pixel space for SVG rendering
+  const pixelStateB = mapToPixelSpace(centeredStateB, screenWidth, BOARD_HEIGHT, 80);
+  const pixelStateA = mapToPixelSpace(positionedStateA, screenWidth, BOARD_HEIGHT, 50);
+
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <Svg width={screenWidth} height={BOARD_HEIGHT} style={styles.svg}>
         {/* State B (target state) - rendered first as background */}
         <StateShape
-          geometry={centeredStateB}
+          geometry={pixelStateB}
           fill={COLORS.STATE_B.FILL}
           stroke={COLORS.STATE_B.STROKE}
           strokeWidth={2}
@@ -150,7 +155,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         {/* State A (state to fit) - rendered on top */}
         <G>
           <StateShape
-            geometry={positionedStateA}
+            geometry={pixelStateA}
             fill={COLORS.STATE_A.FILL}
             stroke={COLORS.STATE_A.STROKE}
             strokeWidth={2}
